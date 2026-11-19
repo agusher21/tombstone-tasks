@@ -45,7 +45,7 @@ A `<form id="add-task-form">` rendered at the top of the active section (or in a
 **Fields:**
 - Title: `<input type="text" required>` — validated non-empty before submission.
 - Due date: `<input type="date">` — optional.
-- Haunting level: `<select>` with options `low` (default), `medium`, `high`.
+- Haunting level: a radio fieldset with options `low` (default), `medium`, `high`.
 - Submit button: "Plant tombstone" (or equivalent label).
 
 **Behavior:**
@@ -62,16 +62,16 @@ A `<article class="tombstone-card">` element. One card per task; always present 
 
 | State | CSS class(es) added |
 |-------|---------------------|
-| Alive | `status-alive` |
-| Buried | `status-buried` |
-| Risen (overdue, alive) | `status-alive risen` |
+| Alive | *(none — just `.tombstone-card`)* |
+| Buried | `is-buried` |
+| Risen (overdue, alive) | `is-risen` |
 | Haunting level | `.haunting-low` / `.haunting-medium` / `.haunting-high` |
 
 **Always rendered inside the card:**
-- Task title in `<h3 class="card-title">`.
+- Task title in `<h2>` (textContent = task title).
 - Due date in `<p class="card-due-date">` (omitted entirely when no due date is set).
-- Haunting-level badge `<span class="haunting-badge">`.
-- Action buttons: Complete (`<button class="btn-complete">`), Edit (`<button class="btn-edit" aria-label="Edit task">`), Delete (`<button class="btn-delete" aria-label="Delete task">`). Complete button is hidden when status is buried.
+- Haunting-level badge `<span class="haunting-badge haunting-{level}">`.
+- Action buttons: Bury (`<button aria-label="Bury: {title}">`), Edit (`<button aria-label="Edit: {title}">`). These appear only on active (alive) cards. Delete (`<button aria-label="Delete: {title}">`) appears only on buried cards.
 
 **Additional content when buried:**
 - Epitaph in `<p class="epitaph">` (monospace italic font stack).
@@ -80,21 +80,21 @@ A `<article class="tombstone-card">` element. One card per task; always present 
 **Additional content when risen:**
 - `::before` pseudo-element carrying the fog overlay (`background: var(--tt-fog)`; optionally `backdrop-filter: blur(1px)`).
 - CSS crack pattern applied via `box-shadow` inset lines.
-- Warning label `<span class="risen-label">` with `color: var(--tt-blood-bright)` text.
 - Warning icon `<span aria-hidden="true" class="risen-icon">` with sibling `<span class="sr-only">Overdue</span>`.
+- The card's `<h2>` renders in `var(--tt-blood-bright)` via `.is-risen h2 { color: var(--tt-blood-bright); }`.
 - Float animation on the `::before` overlay (when motion is allowed).
 
 ---
 
 ### Active Section
 
-`<section id="active-section" aria-label="Active tasks">` — contains tombstone cards for all tasks with `status === "alive"`. Visible under the All and Alive filters.
+`<section id="graveyard-active" aria-label="Active tasks">` — contains tombstone cards for all tasks with `buried === false`. Visible under the All and Alive filters.
 
 ---
 
 ### Graveyard Section
 
-`<section id="graveyard-section" aria-label="Graveyard">` — contains tombstone cards for all tasks with `status === "buried"`. Visible under the All and Buried filters. Rendered below the active section with a visual divider (a "Here lies…" header or similar).
+`<section id="graveyard-buried" aria-label="Graveyard">` — contains tombstone cards for all tasks with `buried === true`. Visible under the All and Buried filters. Rendered below the active section with a visual divider (a "Here lies…" header or similar).
 
 ---
 
@@ -104,19 +104,19 @@ A `<article class="tombstone-card">` element. One card per task; always present 
 
 **Always displays three values:**
 1. Buried count: `<span id="stat-buried">`.
-2. Survival streak: `<span id="stat-streak">` with the moon glyph (`<span aria-hidden="true" class="moon-glyph">🌕</span>`) adjacent; moon brightness scales via a CSS custom property `--tt-moon-opacity` driven by JavaScript.
+2. Survival streak: `<span id="stat-streak">` with the moon glyph (`<span id="moon-glyph" aria-hidden="true">🌕</span><span class="sr-only">Streak moon</span>`) adjacent; moon brightness scales via a CSS custom property `--tt-streak` driven by JavaScript (brightness = `calc(0.5 + var(--tt-streak, 0) * 0.05)`).
 3. Alive count: `<span id="stat-alive">`.
 
-Streak label reads "X survival days". When streak is 0, moon glyph is dimmed (`--tt-moon-opacity: 0.2`). Updated by calling `renderStatsBar()` after every state mutation.
+Streak label reads "X survival days". When streak is 0, moon glyph is dimmed (`--tt-streak: 0`). Updated by calling `renderStats()` after every state mutation.
 
 ---
 
 ### Filter Control
 
-`<div id="filter-control" role="group" aria-label="Filter tasks">` with three `<button>` elements: All, Alive, Buried.
+`<div id="filter-controls" role="group" aria-label="Filter tasks">` with three `<button>` elements: All, Alive, Buried.
 
-- Active filter button carries `aria-pressed="true"` and a `.filter-active` class.
-- Clicking a filter sets `store.activeFilter`, then calls `applyFilter()` which shows/hides individual cards via `hidden` attribute or `display: none` without re-rendering them.
+- Active filter button carries `aria-pressed="true"`; the others carry `aria-pressed="false"`. Active button styled via `[aria-pressed="true"]`.
+- Clicking a filter sets `store.filter`, then calls `renderAll()`. Filtering is applied during render: `renderTasks()` and `renderGraveyard()` skip non-matching tasks.
 - Default on load: All.
 
 ---
@@ -127,7 +127,7 @@ All modals use native `<dialog>` elements. Each is opened with `.showModal()` an
 
 #### Epitaph Dialog
 
-`<dialog id="epitaph-dialog">` — opened when the user activates Complete on a card.
+`<dialog id="epitaph-dialog">` — opened when the user activates the Bury button on a card.
 
 - `<textarea id="epitaph-input" placeholder="Enter an epitaph…" autofocus>` — optional; if empty, an auto-generated epitaph is used.
 - Confirm button: triggers `buryTask(taskId, epitaph)`.
@@ -137,14 +137,14 @@ All modals use native `<dialog>` elements. Each is opened with `.showModal()` an
 
 `<dialog id="edit-dialog">` — opened with the task's current values pre-populated.
 
-- Title `<input>` (`autofocus`), due-date `<input type="date">`, haunting-level `<select>`.
+- Title `<input>` (`autofocus`), due-date `<input type="date">`, haunting-level radio fieldset (low/medium/high, matching radio pre-checked).
 - Save button: validates non-empty title, calls `updateTask(taskId, fields)`.
 - Cancel button: closes dialog, no changes.
 - Empty-title submission blocked with inline error, same pattern as the add form.
 
 #### Delete-Confirmation Dialog
 
-`<dialog id="delete-dialog">` — a brief confirmation prompt.
+`<dialog id="confirm-dialog">` — a brief confirmation prompt.
 
 - Message: "Remove this tombstone forever?"
 - Confirm button (`autofocus`): calls `deleteTask(taskId)`.
@@ -167,11 +167,11 @@ All modals use native `<dialog>` elements. Each is opened with `.showModal()` an
 
 ```
 {
-  id:            string,   // UUID v4 (crypto.randomUUID() or polyfill)
+  id:            string,   // generated by generateId(): Date.now().toString(36) + Math.random().toString(36).slice(2)
   title:         string,   // non-empty
   dueDate:       string | null,  // ISO 8601 date "YYYY-MM-DD", null if unset
   hauntingLevel: "low" | "medium" | "high",
-  status:        "alive" | "buried",
+  buried:        boolean,  // false = alive, true = buried
   epitaph:       string | null,  // null until buried
   createdAt:     string,   // ISO 8601 datetime (new Date().toISOString())
   buriedAt:      string | null   // ISO 8601 datetime, null until buried
@@ -182,18 +182,18 @@ All modals use native `<dialog>` elements. Each is opened with `.showModal()` an
 
 ```
 {
-  tasks:        Task[],          // ordered by createdAt descending
-  activeFilter: "all" | "alive" | "buried"
+  tasks:  Task[],                      // ordered by createdAt descending
+  filter: "all" | "alive" | "buried"   // session-only, resets to "all" on every load
 }
 ```
 
-`activeFilter` is session-only state (not persisted); it resets to `"all"` on every load.
+`filter` is session-only state (not persisted); it resets to `"all"` on every load.
 
 ### localStorage Serialization
 
 - **Key**: `"tombstone-tasks"`
 - **Value**: `JSON.stringify({ tasks: store.tasks })`
-- Only `tasks` is persisted; `activeFilter` is not.
+- Only `tasks` is persisted; `filter` is not.
 - On load: `JSON.parse(localStorage.getItem("tombstone-tasks") ?? "null")`. If the result is `null`, not an object, or its `tasks` field is not an array, the store initializes with `tasks: []`.
 
 ```
@@ -223,7 +223,7 @@ The streak counts consecutive calendar days (in the user's local timezone) endin
 ```
 computeStreak(tasks):
   burialDays = SET of unique date strings "YYYY-MM-DD" extracted from
-               task.buriedAt for every task where status === "buried"
+               task.buriedAt for every task where buried === true
 
   streak = 0
   day = today (local calendar date as "YYYY-MM-DD")
@@ -236,7 +236,7 @@ computeStreak(tasks):
   RETURN streak
 ```
 
-A gap of any single day with no burial resets the streak to zero from that point backward. The streak is recomputed live (not stored) whenever `renderStatsBar()` runs.
+A gap of any single day with no burial resets the streak to zero from that point backward. The streak is recomputed live (not stored) whenever `renderStats()` runs.
 
 ---
 
@@ -247,26 +247,39 @@ A gap of any single day with no burial resets the streak to zero from that point
 ```
 DOMContentLoaded:
   loadStore()
-  renderAllCards()      // builds DOM from store.tasks
-  renderStatsBar()
-  applyFilter()
-  checkRisen()          // marks any already-overdue tasks
+  IF store.tasks is empty (first run) THEN
+    seed three sample tasks:
+      1. Active task, hauntingLevel "medium", future due date
+      2. Buried task with epitaph "They finally replied to that email"
+      3. Active task with a past due date (triggers risen styling)
+    persistStore()
+  END IF
+  renderAll()       // calls renderTasks(), renderGraveyard(), renderStats(), renderBats()
+  checkRisen()      // marks any already-overdue tasks
   scheduleRisenCheck()  // midnight re-check via setTimeout
 ```
 
-### renderAllCards()
+### renderTasks()
 
-Clears both section containers, then for each task in `store.tasks` calls `createCardElement(task)` and appends to the appropriate section. Used only on initial load; subsequent mutations use targeted updates.
+Clears `#graveyard-active`, then for each task in `store.tasks` where `buried === false` (applying `store.filter`), calls `createCardElement(task)` and appends to `#graveyard-active`.
+
+### renderGraveyard()
+
+Clears `#graveyard-buried`, then for each task in `store.tasks` where `buried === true` (applying `store.filter`), calls `createCardElement(task)` and appends to `#graveyard-buried`.
+
+### renderAll()
+
+Calls `renderTasks()`, `renderGraveyard()`, `renderStats()`, and `renderBats()` in sequence.
 
 ### Targeted Updates After Mutation
 
-After `createTask()`: call `createCardElement(task)`, prepend to Active Section, `renderStatsBar()`, `updateBats()`.
+After `createTask()`: call `renderAll()`, or prepend a new card to `#graveyard-active` and update stats/bats.
 
-After `buryTask()`: run bury animation on existing card element, then move it to Graveyard Section (or toggle its classes/visibility), `renderStatsBar()`, `updateBats()`, `applyFilter()`.
+After `buryTask()`: run bury animation on existing card element, then on animation end call `renderAll()`.
 
-After `updateTask()`: update only the affected card's DOM fields (title, due date, haunting-level class), `renderStatsBar()` if haunting level changed bat count.
+After `updateTask()`: update only the affected card's DOM fields (title, due date, haunting-level class), then `renderStats()` if haunting level changed.
 
-After `deleteTask()`: remove the card element from DOM, `renderStatsBar()`, `updateBats()`, `applyFilter()`.
+After `deleteTask()`: remove the card element from DOM, `renderStats()`, update bats.
 
 ### Bury Animation
 
@@ -277,24 +290,25 @@ buryCard(cardEl, onComplete):
     RETURN
   END IF
 
-  cardEl.style.transition = "transform 400ms ease, opacity 400ms ease"
-  cardEl.style.transform  = "translateY(20px)"
-  cardEl.style.opacity    = "0"
+  Add class "is-burying" to cardEl.
+  // CSS: @keyframes bury-sink { to { transform: translateY(20px); opacity: 0; } }
+  // CSS: .is-burying { animation: bury-sink 400ms ease forwards; }
+  // (gated by @media (prefers-reduced-motion: no-preference))
 
-  AFTER 400ms (transitionend or setTimeout fallback):
-    onComplete()   // moves card to Graveyard, applies buried classes, restores inline styles
+  ON animationend (or setTimeout fallback at 400ms):
+    onComplete()   // moves card to Graveyard Section, applies is-buried class, restores state
 ```
 
-The `onComplete` callback applies `.status-buried` classes, sets opacity/translate for the sunken look via CSS class (not inline style), and appends the card to the Graveyard Section.
+The `onComplete` callback applies `.is-buried` class, sets opacity/translate for the sunken look via CSS class (not inline style), and appends the card to `#graveyard-buried`.
 
 ### Risen (Overdue) Styling
 
-A task is risen when `task.dueDate !== null && task.dueDate < todayString && task.status === "alive"`.
+A task is risen when `task.dueDate !== null && task.dueDate < todayString && task.buried === false`.
 
-Risen styling is applied by adding `.risen` to the card element. CSS handles all visual effects:
+Risen styling is applied by adding `.is-risen` to the card element. CSS handles all visual effects:
 
 ```css
-.tombstone-card.risen::before {
+.tombstone-card.is-risen::before {
   content: "";
   position: absolute;
   inset: 0;
@@ -304,7 +318,7 @@ Risen styling is applied by adding `.risen` to the card element. CSS handles all
 }
 
 @media (prefers-reduced-motion: no-preference) {
-  .tombstone-card.risen::before {
+  .tombstone-card.is-risen::before {
     animation: fog-float 3s ease-in-out infinite;
   }
 }
@@ -317,11 +331,18 @@ Risen styling is applied by adding `.risen` to the card element. CSS handles all
 
 Crack pattern via `box-shadow`:
 ```css
-.tombstone-card.risen {
+.tombstone-card.is-risen {
   box-shadow:
     inset 2px 4px 0 -1px var(--tt-blood),
     inset -1px 8px 0 -2px var(--tt-blood);
   filter: saturate(0.3);
+}
+```
+
+Warning text color:
+```css
+.tombstone-card.is-risen h2 {
+  color: var(--tt-blood-bright);
 }
 ```
 
@@ -332,8 +353,7 @@ scheduleRisenCheck():
   now = new Date()
   msUntilMidnight = (start of next calendar day) - now
   setTimeout(() => {
-    checkRisen()
-    renderStatsBar()
+    renderAll()
     scheduleRisenCheck()   // reschedule for the following midnight
   }, msUntilMidnight)
 ```
@@ -375,10 +395,19 @@ The arch is achieved with `border-radius`:
 
 ### Haunting Level Visual Indicators
 
+Haunting level is communicated via a `<span class="haunting-badge haunting-{level}">` badge inside each card. The badge uses a colored left border:
+
 ```css
-.tombstone-card.haunting-low    { border-color: var(--tt-green); }
-.tombstone-card.haunting-medium { border-color: var(--tt-moon); border-width: 2px; }
-.tombstone-card.haunting-high   { border-color: var(--tt-blood-bright); border-width: 3px; }
+.haunting-badge {
+  display: inline-block;
+  padding: 0.15em 0.5em;
+  border-radius: 3px;
+  font-size: 0.75rem;
+}
+
+.haunting-low    { border-left: 3px solid var(--tt-green); }
+.haunting-medium { border-left: 3px solid #c8a020; }
+.haunting-high   { border-left: 3px solid var(--tt-blood-bright); }
 ```
 
 ### Spooky Motif Functions
@@ -504,14 +533,14 @@ The smoke test lives at `smoke-test.mjs` in the repository root. It uses Playwri
 
 **1. App loads without errors** (Requirement 8.2, 9.1)
 - Navigate to `index.html` via `file://` URL.
-- Assert `document.title` contains "Tombstone Tasks" or a known landmark element (`#active-section`) is present in the DOM.
+- Assert `document.title` contains "Tombstone Tasks" or a known landmark element (`#graveyard-active`) is present in the DOM.
 - Assert no unhandled console errors during load.
 
 **2. Add a task — tombstone appears in Active Section** (Requirement 1.1, 2.1, 2.4)
 - Fill the title input with "Test task".
-- Select haunting level "medium".
+- Select haunting level "medium" radio.
 - Submit the form.
-- Assert a `.tombstone-card` element exists inside `#active-section` whose text includes "Test task".
+- Assert a `.tombstone-card` element exists inside `#graveyard-active` whose text includes "Test task".
 
 **3. Add-task title validation** (Requirement 1.2)
 - Submit the form with an empty title.
@@ -519,13 +548,13 @@ The smoke test lives at `smoke-test.mjs` in the repository root. It uses Playwri
 - Assert a `.field-error` element is visible.
 
 **4. Complete a task — burial and move to Graveyard Section** (Requirement 3.1–3.9)
-- With a card in the active section, click its `.btn-complete` button.
+- With a card in the active section, click its Bury button (`button[aria-label^="Bury:"]`).
 - Assert the epitaph `<dialog>` opens.
 - Type "They finally replied to that email" in `#epitaph-input`.
 - Click the confirm button.
-- Assert the card is no longer in `#active-section`.
-- Assert the card is present in `#graveyard-section`.
-- Assert the card carries class `status-buried`.
+- Assert the card is no longer in `#graveyard-active`.
+- Assert the card is present in `#graveyard-buried`.
+- Assert the card carries class `is-buried`.
 - Assert the card contains a `.epitaph` element with the typed text.
 
 **5. Stats bar updates** (Requirement 4.1–4.6)
@@ -535,7 +564,7 @@ The smoke test lives at `smoke-test.mjs` in the repository root. It uses Playwri
 
 **6. Filter: Alive** (Requirement 5.3)
 - Click the Alive filter button.
-- Assert the buried card in `#graveyard-section` is not visible (has `hidden` attribute or `display: none`).
+- Assert the buried card in `#graveyard-buried` is not visible (has `hidden` attribute or `display: none`).
 - Assert any alive cards remain visible.
 
 **7. Filter: Buried** (Requirement 5.4)
@@ -549,14 +578,15 @@ The smoke test lives at `smoke-test.mjs` in the repository root. It uses Playwri
 
 **9. Overdue risen styling** (Requirement 7.1–7.7)
 - Add a task with `dueDate` set to a date in the past (e.g. "2000-01-01").
-- Assert the resulting card carries both class `risen` and displays a `.risen-label` element.
-- Assert a `.risen-icon` element has `aria-hidden="true"`.
+- Assert the resulting card carries class `is-risen`.
+- Assert a `.risen-icon` element has `aria-hidden="true"` inside the card.
 - Assert a `.sr-only` sibling of the icon contains "Overdue".
+- Assert the card's `<h2>` renders in `var(--tt-blood-bright)` (via `.is-risen h2` rule).
 
 **10. localStorage persistence across reload** (Requirement 8.1–8.2)
 - After adding a task, reload the page.
-- Assert the previously added task's card reappears in `#active-section`.
-- Assert buried tasks reappear in `#graveyard-section`.
+- Assert the previously added task's card reappears in `#graveyard-active`.
+- Assert buried tasks reappear in `#graveyard-buried`.
 
 ### Requirements Coverage Map
 
