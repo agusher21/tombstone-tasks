@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tombstone Tasks</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header>
+<h1>Tombstone Tasks</h1>
+<p class="tagline">Every task a tombstone. Bury them all.</p>
+<div id="bat-container" aria-hidden="true"></div>
+</header>
+<main>
+<div id="stats-bar" role="status"></div>
+<div id="filter-controls"></div>
+<section id="graveyard-active" aria-live="polite" aria-label="Active tasks"></section>
+<section id="graveyard-buried" aria-label="Buried tasks"></section>
+<form id="add-task-form">
+<label for="task-title">Task title</label>
+<input type="text" id="task-title" name="title" required aria-describedby="title-error">
+<span id="title-error" class="field-error" role="alert" hidden></span>
+<label for="task-due-date">Due date (optional)</label>
+<input type="date" id="task-due-date" name="dueDate">
+<fieldset>
+<legend>Haunting level</legend>
+<label><input type="radio" name="hauntingLevel" value="low" checked> Low</label>
+<label><input type="radio" name="hauntingLevel" value="medium"> Medium</label>
+<label><input type="radio" name="hauntingLevel" value="high"> High</label>
+</fieldset>
+<button type="submit">Plant Tombstone</button>
+</form>
+</main>
+<dialog id="epitaph-dialog"></dialog>
+<dialog id="edit-dialog"></dialog>
+<dialog id="confirm-dialog"></dialog>
+<script src="app.js" defer></script>
+</body>
+</html>
