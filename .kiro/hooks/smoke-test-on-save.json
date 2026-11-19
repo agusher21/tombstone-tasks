@@ -1,0 +1,15 @@
+{
+  "version": "v1",
+  "hooks": [
+    {
+      "name": "smoke-test-on-save",
+      "trigger": "PostFileSave",
+      "description": "Runs the Playwright headless smoke test after every save to an HTML, CSS, or JS file.",
+      "matcher": "\\.(html|css|js)$",
+      "action": {
+        "type": "command",
+        "command": "node smoke-test.mjs"
+      }
+    }
+  ]
+}
