@@ -67,6 +67,12 @@
     if (typeof renderBats === 'function') { renderBats(); }
   }
 
+  function isOverdue(task) {
+    if (!task.dueDate || task.buried) { return false; }
+    var todayString = new Date().toISOString().slice(0, 10);
+    return task.dueDate < todayString;
+  }
+
   function renderTasks() {
     var section = document.getElementById('graveyard-active');
     section.textContent = '';
@@ -79,6 +85,18 @@
       var heading = document.createElement('h2');
       heading.textContent = task.title;
       card.appendChild(heading);
+      if (isOverdue(task)) {
+        card.classList.add('is-risen');
+        var risenIcon = document.createElement('span');
+        risenIcon.setAttribute('aria-hidden', 'true');
+        risenIcon.className = 'risen-icon';
+        risenIcon.textContent = '⚠️';
+        card.appendChild(risenIcon);
+        var risenLabel = document.createElement('span');
+        risenLabel.className = 'sr-only';
+        risenLabel.textContent = 'Overdue';
+        card.appendChild(risenLabel);
+      }
       if (task.dueDate) {
         var due = document.createElement('p');
         due.textContent = 'Due: ' + task.dueDate;
@@ -313,6 +331,7 @@
       '<button type="button" id="cancel-delete">Cancel</button>';
     dialog.querySelector('p').textContent = 'Delete "' + task.title + '"?';
     dialog.showModal();
+    document.getElementById('confirm-delete').focus();
     document.getElementById('confirm-delete').addEventListener('click', function () {
       var index = -1;
       store.tasks.forEach(function (t, i) {
@@ -328,6 +347,63 @@
     });
   }
 
+  function renderBats() {
+    var aliveCount = store.tasks.filter(function (t) { return !t.buried; }).length;
+    var container = document.getElementById('bat-container');
+    container.textContent = '';
+    var count = Math.min(aliveCount, 5);
+    for (var i = 0; i < count; i++) {
+      var bat = document.createElement('span');
+      bat.setAttribute('aria-hidden', 'true');
+      bat.className = 'bat';
+      bat.textContent = '🦇';
+      container.appendChild(bat);
+    }
+  }
+
   store.load();
+  if (store.tasks.length === 0) {
+    var today = new Date();
+    var future = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 7);
+    var past = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 1);
+    store.tasks.push(
+      {
+        id: store.generateId(),
+        title: 'Water the haunted roses',
+        dueDate: future.toISOString().slice(0, 10),
+        hauntingLevel: 'medium',
+        createdAt: new Date().toISOString(),
+        buried: false,
+        epitaph: null,
+        buriedAt: null
+      },
+      {
+        id: store.generateId(),
+        title: 'Reply to the graveyard committee',
+        dueDate: null,
+        hauntingLevel: 'low',
+        createdAt: new Date().toISOString(),
+        buried: true,
+        epitaph: 'They finally replied to that email.',
+        buriedAt: new Date().toISOString()
+      },
+      {
+        id: store.generateId(),
+        title: 'Sweep the crypt steps',
+        dueDate: past.toISOString().slice(0, 10),
+        hauntingLevel: 'high',
+        createdAt: new Date().toISOString(),
+        buried: false,
+        epitaph: null,
+        buriedAt: null
+      }
+    );
+    store.save();
+  }
   renderAll();
+  (function scheduleMidnightRefresh() {
+    var now = new Date();
+    var msUntilMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1) - now;
+    setTimeout(function () { renderAll(); }, msUntilMidnight);
+  })();
 })();

@@ -6,7 +6,7 @@
   --tt-green: #4a7c59;
   --tt-green-glow: #6db88a;
   --tt-blood: #8b1a1a;
-  --tt-blood-bright: #c0392b;
+  --tt-blood-bright: #ec5a48;
   --tt-moon: #f5e6a3;
   --tt-fog: rgba(180,200,180,0.08);
 }
@@ -83,4 +83,78 @@ body {
 [aria-pressed="true"] {
   background: var(--tt-green);
   color: var(--tt-bone);
+}
+
+.is-risen {
+  --tt-fog-local: rgba(180,200,180,0.08);
+  box-shadow: inset 0 0 0 2px var(--tt-blood);
+  border-style: dashed;
+}
+
+.is-risen::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: var(--tt-fog);
+  pointer-events: none;
+  border-radius: inherit;
+}
+
+.is-risen h2 {
+  color: var(--tt-blood-bright);
+}
+
+.bat {
+  display: inline-block;
+  margin: 0 0.25rem;
+  font-size: 1.1rem;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .is-risen::before {
+    animation: fog-float 3s ease-in-out infinite;
+  }
+  .is-burying {
+    animation: bury-sink 400ms ease forwards;
+  }
+}
+
+@keyframes fog-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-3px); }
+}
+
+@keyframes bury-sink {
+  to { transform: translateY(20px); opacity: 0; }
+}
+
+#moon-glyph {
+  color: var(--tt-moon);
+  filter: brightness(calc(0.5 + var(--tt-streak, 0) * 0.05));
+  transition: filter 300ms ease;
+}
+
+main {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 0 1rem;
+}
+
+#graveyard-active,
+#graveyard-buried {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 1.5rem;
+  padding: 1rem 0;
+}
+
+#add-task-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  max-width: 480px;
+}
+
+body {
+  overflow-x: hidden;
 }
