@@ -30,6 +30,47 @@
     }
   };
 
+  var soundMuted = false;
+  try { soundMuted = localStorage.getItem('tombstone-muted') === '1'; } catch (e) { soundMuted = false; }
+
+  function playTone(startFreq, endFreq, duration, type) {
+    if (soundMuted) { return; }
+    try {
+      var Ctx = window.AudioContext || window.webkitAudioContext;
+      if (!Ctx) { return; }
+      var ctx = new Ctx();
+      var osc = ctx.createOscillator();
+      var gain = ctx.createGain();
+      osc.type = type || 'sine';
+      osc.frequency.setValueAtTime(startFreq, ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(Math.max(endFreq, 1), ctx.currentTime + duration);
+      gain.gain.setValueAtTime(0.12, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + duration);
+    } catch (e) { /* audio unavailable, stay silent */ }
+  }
+
+  function soundAdd() { playTone(520, 760, 0.12, 'triangle'); }
+  function soundBury() { playTone(140, 45, 0.35, 'sine'); }
+  function soundDelete() { playTone(320, 140, 0.15, 'sawtooth'); }
+
+  var muteBtn = document.createElement('button');
+  muteBtn.type = 'button';
+  muteBtn.id = 'sound-toggle';
+  muteBtn.setAttribute('aria-pressed', soundMuted ? 'false' : 'true');
+  muteBtn.textContent = soundMuted ? '🔇 Sound off' : '🔊 Sound on';
+  muteBtn.addEventListener('click', function () {
+    soundMuted = !soundMuted;
+    try { localStorage.setItem('tombstone-muted', soundMuted ? '1' : '0'); } catch (e) {}
+    muteBtn.textContent = soundMuted ? '🔇 Sound off' : '🔊 Sound on';
+    muteBtn.setAttribute('aria-pressed', soundMuted ? 'false' : 'true');
+    if (!soundMuted) { soundAdd(); }
+  });
+  document.querySelector('header').appendChild(muteBtn);
+
   var form = document.getElementById('add-task-form');
   form.addEventListener('submit', function (event) {
     event.preventDefault();
@@ -56,6 +97,9 @@
     store.tasks.push(task);
     store.save();
     renderAll();
+    soundAdd();
+    var freshCard = document.getElementById('graveyard-active').querySelector('[data-id="' + task.id + '"]');
+    if (freshCard) { freshCard.classList.add('is-new'); }
     form.reset();
   });
 
@@ -126,7 +170,19 @@
     'Here lies a task, done at last.',
     'It only took three moons and a deadline.',
     'Rest in peace, little to-do.',
-    'Buried with full honours and zero regrets.'
+    'Buried with full honours and zero regrets.',
+    'Here lies a deadline, met at last.',
+    'They answered the email. Finally.',
+    'Gone, but not forgotten. Mostly forgotten.',
+    'Resting now. The backlog can wait.',
+    'It haunted them for weeks. Now it rests.',
+    'Buried under a pile of done.',
+    'Six feet under, zero regrets.',
+    'The committee has been notified.',
+    'Out of the crypt, into the light.',
+    'Done before the rooster crowed.',
+    'A task so old it grew moss.',
+    'Laid to rest with a tiny shovel.'
   ];
 
   document.getElementById('graveyard-active').addEventListener('click', function (event) {
@@ -164,12 +220,18 @@
     task.buried = true;
     task.epitaph = epitaph;
     task.buriedAt = new Date().toISOString();
+    var wisp = document.createElement('span');
+    wisp.className = 'ghost-wisp';
+    wisp.setAttribute('aria-hidden', 'true');
+    wisp.textContent = '👻';
+    card.appendChild(wisp);
     card.classList.add('is-burying');
     var done = false;
     var finish = function () {
       if (done) { return; }
       done = true;
       store.save();
+      soundBury();
       renderAll();
     };
     card.addEventListener('transitionend', finish);
@@ -191,7 +253,7 @@
       card.appendChild(heading);
       if (task.epitaph) {
         var epitaph = document.createElement('p');
-        epitaph.className = 'epitaph';
+        epitaph.className = 'epitaph epitaph-reveal';
         epitaph.textContent = task.epitaph;
         card.appendChild(epitaph);
       }
@@ -339,6 +401,7 @@
       });
       if (index !== -1) { store.tasks.splice(index, 1); }
       store.save();
+      soundDelete();
       dialog.close();
       renderAll();
     });
@@ -361,44 +424,90 @@
     }
   }
 
+  var shareBtn = document.createElement('button');
+  shareBtn.type = 'button';
+  shareBtn.id = 'share-graveyard';
+  shareBtn.textContent = '📣 Share graveyard';
+  shareBtn.addEventListener('click', function () {
+    var aliveCount = 0;
+    var buriedCount = 0;
+    var latestEpitaph = '';
+    store.tasks.forEach(function (t) {
+      if (t.buried) {
+        buriedCount++;
+        if (t.epitaph) { latestEpitaph = t.epitaph; }
+      } else { aliveCount++; }
+    });
+    var text = '🪦 My Graveyard — Tombstone Tasks\nAlive: ' + aliveCount + ' · Buried: ' + buriedCount + '\nLatest epitaph: "' + latestEpitaph + '"';
+    var done = function () {
+      shareBtn.textContent = '✅ Copied!';
+      setTimeout(function () { shareBtn.textContent = '📣 Share graveyard'; }, 2000);
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(done, function () { fallbackCopy(text, done); });
+    } else { fallbackCopy(text, done); }
+  });
+  function fallbackCopy(text, done) {
+    var area = document.createElement('textarea');
+    area.value = text;
+    document.body.appendChild(area);
+    area.select();
+    try { document.execCommand('copy'); } catch (e) {}
+    document.body.removeChild(area);
+    done();
+  }
+  document.querySelector('main').appendChild(shareBtn);
+
   store.load();
-  if (store.tasks.length === 0) {
-    var today = new Date();
-    var future = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 7);
-    var past = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 1);
-    store.tasks.push(
-      {
-        id: store.generateId(),
-        title: 'Water the haunted roses',
-        dueDate: future.toISOString().slice(0, 10),
-        hauntingLevel: 'medium',
-        createdAt: new Date().toISOString(),
-        buried: false,
-        epitaph: null,
-        buriedAt: null
-      },
-      {
-        id: store.generateId(),
-        title: 'Reply to the graveyard committee',
-        dueDate: null,
-        hauntingLevel: 'low',
-        createdAt: new Date().toISOString(),
-        buried: true,
-        epitaph: 'They finally replied to that email.',
-        buriedAt: new Date().toISOString()
-      },
-      {
-        id: store.generateId(),
-        title: 'Sweep the crypt steps',
-        dueDate: past.toISOString().slice(0, 10),
-        hauntingLevel: 'high',
-        createdAt: new Date().toISOString(),
-        buried: false,
-        epitaph: null,
-        buriedAt: null
-      }
-    );
-    store.save();
+  var samplesSummoned = false;
+  try { samplesSummoned = localStorage.getItem('tombstone-samples-summoned') === '1'; } catch (e) { samplesSummoned = false; }
+  if (store.tasks.length === 0 && !samplesSummoned) {
+    var summonBtn = document.createElement('button');
+    summonBtn.type = 'button';
+    summonBtn.id = 'summon-samples';
+    summonBtn.textContent = '👻 Summon sample spirits';
+    summonBtn.addEventListener('click', function () {
+      var today = new Date();
+      var future = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 7);
+      var past = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 1);
+      store.tasks.push(
+        {
+          id: store.generateId(),
+          title: 'Water the haunted roses',
+          dueDate: future.toISOString().slice(0, 10),
+          hauntingLevel: 'medium',
+          createdAt: new Date().toISOString(),
+          buried: false,
+          epitaph: null,
+          buriedAt: null
+        },
+        {
+          id: store.generateId(),
+          title: 'Reply to the graveyard committee',
+          dueDate: null,
+          hauntingLevel: 'low',
+          createdAt: new Date().toISOString(),
+          buried: true,
+          epitaph: 'They finally replied to that email.',
+          buriedAt: new Date().toISOString()
+        },
+        {
+          id: store.generateId(),
+          title: 'Sweep the crypt steps',
+          dueDate: past.toISOString().slice(0, 10),
+          hauntingLevel: 'high',
+          createdAt: new Date().toISOString(),
+          buried: false,
+          epitaph: null,
+          buriedAt: null
+        }
+      );
+      store.save();
+      try { localStorage.setItem('tombstone-samples-summoned', '1'); } catch (e) {}
+      summonBtn.remove();
+      renderAll();
+    });
+    document.querySelector('main').appendChild(summonBtn);
   }
   renderAll();
   (function scheduleMidnightRefresh() {

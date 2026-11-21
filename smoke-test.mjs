@@ -27,8 +27,8 @@ try {
     throw new Error('smoke: added task card does not contain "Test Ghost"');
   }
   const statsAfterAdd = await page.textContent('#stats-bar');
-  if (!statsAfterAdd || !statsAfterAdd.includes('Alive: 3')) {
-    throw new Error('smoke: stats alive count did not rise to 3 after add: ' + statsAfterAdd);
+  if (!statsAfterAdd || !statsAfterAdd.includes('Alive: 1')) {
+    throw new Error('smoke: stats alive count did not rise to 1 after add: ' + statsAfterAdd);
   }
   console.log('smoke: add task — PASS');
   // Bury task moves it to the Graveyard and updates stats.
@@ -45,7 +45,7 @@ try {
     throw new Error('smoke: buried task not found in #graveyard-buried');
   }
   const statsAfterBury = await page.textContent('#stats-bar');
-  if (!statsAfterBury || !statsAfterBury.includes('Alive: 2') || !statsAfterBury.includes('Buried: 2')) {
+  if (!statsAfterBury || !statsAfterBury.includes('Alive: 0') || !statsAfterBury.includes('Buried: 1')) {
     throw new Error('smoke: stats did not update after bury: ' + statsAfterBury);
   }
   console.log('smoke: bury task — PASS');

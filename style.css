@@ -158,3 +158,88 @@ main {
 body {
   overflow-x: hidden;
 }
+
+@media (prefers-reduced-motion: no-preference) {
+  .is-risen {
+    animation: risen-shake 1.6s ease-in-out infinite;
+  }
+  .is-new {
+    animation: rise-in 450ms ease-out;
+  }
+  .tombstone-card:hover {
+    transform: translateY(-4px) rotate(-1deg);
+  }
+  .epitaph-reveal {
+    animation: epitaph-reveal 600ms ease-out;
+  }
+}
+
+@keyframes risen-shake {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  25% { transform: translateY(-2px) rotate(-0.6deg); }
+  75% { transform: translateY(1px) rotate(0.6deg); }
+}
+
+@keyframes rise-in {
+  from { transform: translateY(24px) scale(0.96); opacity: 0; }
+  to { transform: translateY(0) scale(1); opacity: 1; }
+}
+
+@keyframes epitaph-reveal {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .bat {
+    animation: bat-bob 2.4s ease-in-out infinite;
+  }
+  .bat:nth-child(2) { animation-delay: 0.5s; }
+  .bat:nth-child(3) { animation-delay: 1s; }
+  .bat:nth-child(4) { animation-delay: 1.5s; }
+  .bat:nth-child(5) { animation-delay: 2s; }
+  #moon-glyph {
+    animation: moon-flicker 4s ease-in-out infinite;
+  }
+  .ghost-wisp {
+    position: absolute;
+    left: 50%;
+    bottom: 0.5rem;
+    font-size: 1.4rem;
+    pointer-events: none;
+    animation: wisp-rise 1.4s ease-out forwards;
+  }
+}
+
+@keyframes bat-bob {
+  0%, 100% { transform: translateY(0) rotate(-4deg); }
+  50% { transform: translateY(-8px) rotate(4deg); }
+}
+
+@keyframes moon-flicker {
+  0%, 100% { opacity: 1; }
+  48% { opacity: 1; }
+  50% { opacity: 0.55; }
+  52% { opacity: 1; }
+  78% { opacity: 0.75; }
+  80% { opacity: 1; }
+}
+
+@keyframes wisp-rise {
+  from { transform: translate(-50%, 0); opacity: 1; }
+  to { transform: translate(-50%, -64px); opacity: 0; }
+}
+
+@media (max-width: 560px) {
+  body { padding: 0 0.5rem; }
+  h1 { font-size: 1.6rem; }
+  #graveyard-active,
+  #graveyard-buried {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+  .tombstone-card { padding: 1.25rem 0.75rem 0.75rem; }
+  .tombstone-card button { min-height: 44px; }
+  #add-task-form { max-width: none; }
+  #stats-bar { font-size: 0.9rem; }
+}
